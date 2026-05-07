@@ -16,6 +16,12 @@ A skill for rewriting or authoring bioinformatics analysis scripts in a beginner
 
 Location: `general-bioinformatics-teaching-script/SKILL.md`
 
+### `general-bioinformatics-teaching-script-enhanced`
+
+An enhanced version of the bioinformatics teaching-script skill for users who need much more explicit guidance on code syntax, parameters, object structure, debugging steps, and how to read each line while running the script section by section.
+
+Location: `general-bioinformatics-teaching-script-enhanced/SKILL.md`
+
 ### `general-project-handoff`
 
 A skill for creating strong project handoff documents that help another AI assistant, future work session, or collaborator continue a complex project without losing critical context.
@@ -30,6 +36,8 @@ Location: `general-project-handoff/SKILL.md`
 ├── LICENSE
 ├── .gitignore
 ├── general-bioinformatics-teaching-script/
+│   └── SKILL.md
+├── general-bioinformatics-teaching-script-enhanced/
 │   └── SKILL.md
 └── general-project-handoff/
     └── SKILL.md
