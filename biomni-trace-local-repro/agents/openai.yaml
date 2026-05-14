@@ -1,0 +1,7 @@
+interface:
+  display_name: "Biomni Trace Local Repro"
+  short_description: "Download Biomni traces and write local repro scripts"
+  default_prompt: "Use $biomni-trace-local-repro to download this Biomni share trace and turn it into a local reproducible teaching script."
+
+policy:
+  allow_implicit_invocation: true
