@@ -14,6 +14,8 @@ Ask before any decision that changes:
 - whether to overwrite, delete, move, or regenerate existing results;
 - whether to actually run expensive analysis steps;
 - whether to install packages or download large files;
+- whether to use any non-local raw/original data source;
+- whether to use Biomni outputs as intermediate inputs instead of locally generated files;
 - how to resolve a conflict between an older local script and a newer corrected trace.
 
 Ask concise questions and explain the consequence of each option.
@@ -54,4 +56,3 @@ Bad:
 ```text
 What should I do?
 ```
-
