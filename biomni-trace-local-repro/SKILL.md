@@ -23,6 +23,7 @@ This skill complements `general-bioinformatics-teaching-script-enhanced`: this s
 ### 1. Download the Biomni share
 
 - Extract the share token or stable identifier from the user-provided URL.
+- Find the real downloadable content behind the share page before analyzing. Read `references/link-discovery.md` for the required discovery procedure.
 - Save the download under a project-local trace folder such as:
   - `biomni_traces/<share_token>_<YYYYMMDD>/`
   - or the nearest existing project convention if one is already present.
@@ -77,6 +78,8 @@ The script must:
 
 For detailed contract rules, read `references/repro-contract.md`.
 
+For instructions on finding the downloadable contents behind a Biomni share URL, read `references/link-discovery.md`.
+
 For continuity rules, read `references/project-continuity.md`.
 
 For the STAD F2 example, read `references/stad-f2-case.md`.
@@ -91,4 +94,3 @@ Before handing back work:
 - Confirm the new script's required inputs are produced by earlier local scripts.
 - Confirm missing prerequisites stop clearly and tell the user which script to run.
 - Run static checks. If R is available, run parse/syntax checks only unless the user explicitly requested real analysis execution.
-

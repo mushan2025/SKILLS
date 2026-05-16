@@ -5,6 +5,7 @@ Use this reference when converting a Biomni trace into local reproduction code.
 ## Download Contract
 
 - A Biomni share URL is a source artifact, not a script input path.
+- Discover the real downloadable contents behind the share page before analysis. Use `references/link-discovery.md`.
 - Download all reachable trace materials before analysis:
   - execution trace notes or JSON;
   - code snippets;
@@ -116,4 +117,3 @@ Run static checks before handoff:
 - required inputs exist in prior-script outputs;
 - key missing prerequisites use `stop()`;
 - parse/syntax check if the language runtime is available.
-
