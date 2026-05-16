@@ -37,6 +37,30 @@ Do not use these as default runtime paths:
 
 Trace files may be mentioned in comments as evidence used while writing the script, but not as the path the reader must run.
 
+## Version and Code Fidelity Contract
+
+Extract software and package versions from the Biomni trace whenever available:
+
+- `sessionInfo()`;
+- package logs;
+- run parameters;
+- environment files;
+- command lines;
+- notebook metadata;
+- text notes that report tool versions.
+
+Local reproduction scripts should check or document these versions. If exact versions are not installed locally, warn clearly and explain the reproducibility risk. Do not silently upgrade methods, packages, algorithms, parameters, or defaults.
+
+Keep code as close to Biomni as practical:
+
+- preserve Biomni's function choices, key parameters, thresholds, seeds, and analysis order;
+- preserve output schemas and filenames when they are part of downstream interfaces;
+- change paths from Biomni runtime paths to local project paths;
+- add Chinese teaching comments without changing the analysis logic;
+- remove executable deprecated/error paths while explaining them in comments.
+
+Ask the user before intentionally deviating from Biomni versions, package choices, parameters, or major code structure.
+
 ## Corrected-Only Contract
 
 Executable code must implement only the final corrected path.
@@ -86,6 +110,8 @@ if (!file.exists(F2_CNV_SCORE_FILE)) {
 ## Teaching Contract
 
 The user-facing scripts are not terse pipelines. They are teaching scripts for readers with no coding or bioinformatics background.
+
+Use Chinese comments and Chinese explanatory text by default. English may remain in package names, function names, column names, file names, command output, and quoted source strings.
 
 Each major code block should explain:
 

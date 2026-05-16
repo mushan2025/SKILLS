@@ -16,7 +16,9 @@ This skill complements `general-bioinformatics-teaching-script-enhanced`: this s
 3. **Trace paths are evidence only.** Final local reproduction scripts must not use `share_*`, `.tmp_*`, `/mnt/...`, Biomni workspace paths, or downloaded trace folders as default runtime inputs.
 4. **Corrected path only.** Executable code must reproduce Biomni's final corrected path. Historical mistakes, deprecated outputs, old formulas, and wrong interpretations must appear only in `#` comments.
 5. **Preserve project continuity.** Before writing a new script in an ongoing project, read the earlier local scripts and their outputs so the new script connects cleanly.
-6. **Ask for major decisions.** If a choice changes the analysis path, candidate definition, default runtime behavior, output interface, naming convention, script deprecation, deletion/overwrite behavior, or whether to run expensive analysis, ask the user first.
+6. **Chinese comments for teaching scripts.** User-facing reproduction scripts should use Chinese comments and Chinese explanatory text by default, unless the user explicitly asks for another language.
+7. **Version and code fidelity.** Software versions, package versions, parameters, and code structure should match Biomni as closely as practical. Change only what is needed for local paths, local prerequisites, teaching clarity, and removal of executable error paths.
+8. **Ask for major decisions.** If a choice changes the analysis path, candidate definition, default runtime behavior, output interface, naming convention, script deprecation, deletion/overwrite behavior, whether to run expensive analysis, or whether to deviate from Biomni versions/code structure, ask the user first.
 
 ## Workflow
 
@@ -72,8 +74,9 @@ The script must:
 - use local project paths, not Biomni paths;
 - depend on earlier local outputs with explicit `stop()` messages when missing;
 - run the final corrected path by default;
-- explain code for a zero-bioinformatics and zero-coding reader;
+- explain code in Chinese for a zero-bioinformatics and zero-coding reader;
 - avoid large uncommented code blocks;
+- preserve Biomni's package versions, software versions, parameters, and code organization as closely as practical;
 - make expensive steps default only when the final reproduction requires them, while warning the reader not to Run All;
 - keep deprecated/error material as `#` comments only.
 
@@ -90,6 +93,8 @@ For the STAD F2 example, read `references/stad-f2-case.md`.
 Before handing back work:
 
 - Confirm the latest downloaded trace was used as evidence.
+- Confirm Biomni software/package versions were extracted when available and reflected in the script or version checks.
+- Confirm code flow and parameters stay close to Biomni unless a documented local-reproduction reason requires changes.
 - Confirm final scripts do not contain Biomni trace paths as runtime defaults.
 - Confirm deprecated/error-path terms appear only in comments unless they are part of corrected output column names.
 - Confirm the new script's required inputs are produced by earlier local scripts.
