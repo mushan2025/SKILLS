@@ -6,6 +6,14 @@ Use this reference when the user provides a Biomni share URL and expects Codex t
 
 A Biomni share link is often a viewer page, not a direct file URL. Codex must discover the real content behind it before analyzing the project.
 
+If Python and network access are available, start with the bundled helper:
+
+```powershell
+python scripts/download_biomni_share.py "<BIOMNI_SHARE_URL>" --out biomni_traces
+```
+
+The helper is deliberately conservative: it saves raw responses, follows discovered links, tries common public replay/manifest routes, writes `download_manifest.tsv`, and records failures instead of hiding them. After it runs, Codex must still audit the downloaded files and decide which outputs are corrected evidence.
+
 The output of discovery should be:
 
 - source URL;

@@ -24,6 +24,7 @@ This skill complements `general-bioinformatics-teaching-script-enhanced`: this s
 
 - Extract the share token or stable identifier from the user-provided URL.
 - Find the real downloadable content behind the share page before analyzing. Read `references/link-discovery.md` for the required discovery procedure.
+- Prefer running `scripts/download_biomni_share.py` first when Python and network access are available; it saves viewer/API responses, discovered URLs, reachable files, and a manifest.
 - Save the download under a project-local trace folder such as:
   - `biomni_traces/<share_token>_<YYYYMMDD>/`
   - or the nearest existing project convention if one is already present.

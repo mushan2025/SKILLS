@@ -6,6 +6,7 @@ Use this reference when converting a Biomni trace into local reproduction code.
 
 - A Biomni share URL is a source artifact, not a script input path.
 - Discover the real downloadable contents behind the share page before analysis. Use `references/link-discovery.md`.
+- Prefer the bundled `scripts/download_biomni_share.py` helper when Python and network access are available.
 - Download all reachable trace materials before analysis:
   - execution trace notes or JSON;
   - code snippets;
