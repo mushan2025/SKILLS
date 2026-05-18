@@ -186,19 +186,30 @@ def resolve_links(base_url: str, candidates: Iterable[str]) -> list[str]:
     return sorted(set(urls))
 
 
-def common_probe_urls(original_url: str, final_url: str, token: str) -> list[str]:
+def replay_api_bases(original_url: str, final_url: str) -> list[str]:
     bases = []
     for url in [original_url, final_url]:
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme and parsed.netloc:
             bases.append(f"{parsed.scheme}://{parsed.netloc}")
-    bases = list(dict.fromkeys(bases))
+            if parsed.netloc.lower().endswith("phylo.bio"):
+                bases.append(f"{parsed.scheme}://api.phylo.bio")
+    return list(dict.fromkeys(bases))
+
+
+def common_probe_urls(original_url: str, final_url: str, token: str) -> list[str]:
+    bases = replay_api_bases(original_url, final_url)
     paths = [
         f"/v2/public/replays/{token}",
+        f"/v2/public/replays/{token}/results",
         f"/public/replays/{token}",
+        f"/public/replays/{token}/results",
         f"/api/v2/public/replays/{token}",
+        f"/api/v2/public/replays/{token}/results",
         f"/api/public/replays/{token}",
+        f"/api/public/replays/{token}/results",
         f"/api/replays/{token}",
+        f"/api/replays/{token}/results",
         f"/download_plan.json",
         f"/s3_download_plan.json",
         f"/results.json",
@@ -206,6 +217,39 @@ def common_probe_urls(original_url: str, final_url: str, token: str) -> list[str
         f"/execution_trace/NOTES.md",
     ]
     return [urllib.parse.urljoin(base, path) for base in bases for path in paths]
+
+
+def result_download_urls(text: str, current_url: str, token: str) -> list[str]:
+    try:
+        payload = json.loads(text)
+    except Exception:
+        return []
+
+    ids: set[str] = set()
+    direct_urls: set[str] = set()
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, inner in value.items():
+                lowered = key.lower()
+                if lowered in {"result_id", "file_id"} and isinstance(inner, str):
+                    ids.add(inner)
+                elif lowered in {"download_url", "url"} and isinstance(inner, str) and inner.startswith("http"):
+                    direct_urls.add(inner)
+                walk(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                walk(inner)
+
+    walk(payload)
+
+    parsed = urllib.parse.urlparse(current_url)
+    if not parsed.scheme or not parsed.netloc:
+        return sorted(direct_urls)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    for result_id in ids:
+        direct_urls.add(urllib.parse.urljoin(base, f"/v2/public/replays/{token}/files/{result_id}/download"))
+    return sorted(direct_urls)
 
 
 def write_manifest(rows: list[dict[str, str]], path: Path) -> None:
@@ -270,7 +314,7 @@ def main() -> int:
             continue
 
         text = result.data.decode("utf-8", errors="replace")
-        link_candidates = html_links(result.data) + regex_links(text)
+        link_candidates = html_links(result.data) + regex_links(text) + result_download_urls(text, result.final_url or url, token)
         resolved = resolve_links(result.final_url or url, link_candidates)
         for new_url in resolved:
             discovered.add(new_url)
