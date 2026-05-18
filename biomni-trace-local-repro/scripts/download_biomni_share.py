@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover and download reachable files behind a Biomni share URL.
+"""Discover and download reachable files behind one or more Biomni share URLs.
 
 This helper intentionally uses only the Python standard library so a Codex
 agent can run it in minimal environments. It is a discovery assistant, not a
@@ -260,9 +260,54 @@ def write_manifest(rows: list[dict[str, str]], path: Path) -> None:
             handle.write("\t".join(str(row.get(col, "")).replace("\t", " ") for col in columns) + "\n")
 
 
+def write_cross_trace_inventory(rows: list[dict[str, str]], out_base: Path) -> None:
+    columns = [
+        "source_url",
+        "token",
+        "download_date",
+        "trace_folder",
+        "fetched_urls",
+        "discovered_urls",
+        "apparent_project_step",
+        "relationship_to_other_links",
+        "notes",
+    ]
+    inventory_path = out_base / "cross_trace_inventory.tsv"
+    with inventory_path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write("\t".join(columns) + "\n")
+        for row in rows:
+            handle.write("\t".join(str(row.get(col, "")).replace("\t", " ") for col in columns) + "\n")
+
+    chronology_path = out_base / "cross_trace_chronology.md"
+    lines = [
+        "# Cross-Trace Chronology",
+        "",
+        "Use this file to audit how multiple Biomni share links from the same project relate to each other.",
+        "Fill in the project step, date order, correction relationship, canonical outputs, and deprecated outputs after inspecting the downloaded traces.",
+        "",
+        "| Order | Token | Trace folder | Apparent project step | Relationship / correction note |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for index, row in enumerate(rows, start=1):
+        lines.append(
+            f"| {index} | {row.get('token', '')} | {row.get('trace_folder', '')} | TODO | TODO |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Final Corrected Route Decision",
+            "",
+            "- TODO: Explain which trace(s) define the final corrected path and why.",
+            "- TODO: Explain which trace outputs are deprecated, audit-only, or historical warning material.",
+            "- TODO: Explain which local scripts/outputs must connect to the next reproduction step.",
+        ]
+    )
+    chronology_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Download reachable content behind a Biomni share URL.")
-    parser.add_argument("url", help="Biomni share URL")
+    parser = argparse.ArgumentParser(description="Download reachable content behind one or more Biomni share URLs.")
+    parser.add_argument("urls", nargs="+", help="One or more Biomni share URLs from the same project or related agent windows")
     parser.add_argument("--out", default="biomni_traces", help="Output root directory")
     parser.add_argument("--max-files", type=int, default=250, help="Maximum URLs to fetch")
     parser.add_argument("--max-bytes", type=int, default=50_000_000, help="Maximum bytes per response")
@@ -271,10 +316,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
-    token = extract_token(args.url)
-    date = _dt.datetime.now().strftime("%Y%m%d")
+def download_one(args: argparse.Namespace, source_url: str, date: str) -> dict[str, str]:
+    token = extract_token(source_url)
     out_root = Path(args.out) / f"{token}_{date}"
     raw_dir = out_root / "raw_responses"
     files_dir = out_root / "files"
@@ -282,9 +325,9 @@ def main() -> int:
     raw_dir.mkdir(parents=True, exist_ok=True)
     files_dir.mkdir(parents=True, exist_ok=True)
 
-    (out_root / "SOURCE_URL.txt").write_text(args.url + "\n", encoding="utf-8")
+    (out_root / "SOURCE_URL.txt").write_text(source_url + "\n", encoding="utf-8")
 
-    queue: list[str] = [args.url]
+    queue: list[str] = [source_url]
     seen: set[str] = set()
     manifest: list[dict[str, str]] = []
     discovered: set[str] = set()
@@ -295,7 +338,7 @@ def main() -> int:
             continue
         seen.add(url)
         result = fetch(url, args.timeout, args.max_bytes)
-        subdir = "raw_responses" if url == args.url or is_text(result.content_type, result.data) else "files"
+        subdir = "raw_responses" if url == source_url or is_text(result.content_type, result.data) else "files"
         local_path = save_response(result, out_root, subdir) if result.data else Path("")
         manifest.append(
             {
@@ -321,8 +364,8 @@ def main() -> int:
             if new_url not in seen and len(queue) + len(seen) < args.max_files:
                 queue.append(new_url)
 
-        if url == args.url and not args.no_common_probes:
-            for probe in common_probe_urls(args.url, result.final_url, token):
+        if url == source_url and not args.no_common_probes:
+            for probe in common_probe_urls(source_url, result.final_url, token):
                 if probe not in seen and probe not in queue:
                     queue.append(probe)
 
@@ -332,6 +375,33 @@ def main() -> int:
     (out_root / "discovered_urls.txt").write_text("\n".join(sorted(discovered)) + "\n", encoding="utf-8")
     print(f"Saved Biomni share discovery to: {out_root}")
     print(f"Fetched {len(manifest)} URL(s); discovered {len(discovered)} candidate URL(s).")
+    return {
+        "source_url": source_url,
+        "token": token,
+        "download_date": date,
+        "trace_folder": str(out_root),
+        "fetched_urls": str(len(manifest)),
+        "discovered_urls": str(len(discovered)),
+        "apparent_project_step": "",
+        "relationship_to_other_links": "",
+        "notes": "",
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    date = _dt.datetime.now().strftime("%Y%m%d")
+    out_base = Path(args.out)
+    out_base.mkdir(parents=True, exist_ok=True)
+
+    inventory_rows = []
+    for source_url in args.urls:
+        inventory_rows.append(download_one(args, source_url, date))
+
+    if len(inventory_rows) > 1:
+        write_cross_trace_inventory(inventory_rows, out_base)
+        print(f"Saved cross-trace inventory to: {out_base / 'cross_trace_inventory.tsv'}")
+        print(f"Saved cross-trace chronology template to: {out_base / 'cross_trace_chronology.md'}")
     return 0
 
 

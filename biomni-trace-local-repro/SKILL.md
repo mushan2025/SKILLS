@@ -1,6 +1,6 @@
 ---
 name: biomni-trace-local-repro
-description: Download Biomni share execution traces and available code/output files, audit corrected versus deprecated results, inspect existing local reproduction scripts for continuity, and create or revise local reproducible beginner-friendly bioinformatics teaching scripts. Use when a user provides a Biomni share link, asks to reproduce Biomni work locally, asks to turn a Biomni trace into F0/F1/F2-style scripts, or wants only the final corrected Biomni path implemented while historical mistakes are documented as comments.
+description: Download one or more Biomni share execution traces and available code/output files, audit corrected versus deprecated results across one or multiple Biomni agent windows, inspect existing local reproduction scripts for continuity, prepare beginner environment guides, and create or revise local reproducible beginner-friendly bioinformatics teaching scripts. Use when a user provides Biomni share link(s), asks to reproduce Biomni work locally, asks to turn Biomni trace(s) into F0/F1/F2-style scripts, or wants only the final corrected Biomni path implemented while historical mistakes are documented as comments.
 ---
 
 # Biomni Trace Local Repro
@@ -45,6 +45,9 @@ This skill complements `general-bioinformatics-teaching-script-enhanced`: this s
   - `biomni_traces/<share_token>_<YYYYMMDD>/`
   - or the nearest existing project convention if one is already present.
 - For multiple share links, use one folder per token and create or update a small cross-trace inventory that records each source URL, token, download date, apparent project step, and how it relates to the other links.
+- Use stable cross-trace filenames in the trace root:
+  - `cross_trace_inventory.tsv` for source URL, token, download date, folder, apparent step, and relationship notes.
+  - `cross_trace_chronology.md` for the audited order of agent windows, correction history, final-route decision, and deprecated-output notes.
 - Download all reachable execution trace materials: trace JSON/markdown, code snippets, result metadata, file manifests, tables, figures, notes, and logs.
 - Record the source URL, download date, token, and file inventory.
 - If network access is blocked, request approval through the active Codex permission flow.
@@ -102,18 +105,9 @@ Before writing or extending the reproducible analysis scripts, confirm that the 
 
 Do not force R-only conventions onto every project. Use the language and execution style proven by the downloaded trace and local repo. A project may be R-based, Python-based, notebook-based, shell-heavy, or mixed-language.
 
-The guide should be written in Chinese and should explain, at minimum:
-
-- which software to download and why it is needed, such as R/RStudio/Positron/Rtools for R projects, Python/Conda/venv/Jupyter/VS Code for Python projects, Git/GitHub tools when version control is needed, shell tools when command-line execution is required, and any external bioinformatics software used by Biomni;
-- the exact software versions, package versions, seeds, and system assumptions extracted from Biomni when available;
-- how to create/open the project in the appropriate tool: `.Rproj` for RStudio/Positron R projects, `environment.yml`, `requirements.txt`, `pyproject.toml`, virtual environments, or notebooks for Python projects, and equivalent launcher/config files for other runtimes;
-- how local folders such as `data/`, `results/`, `figures/`, `logs/`, notebooks, scripts, and teaching-script folders are used, and why scripts must use the local project path rather than Biomni paths;
-- how to install or check required packages without silently changing analysis versions, for example R packages with `renv`/`install.packages()`/Bioconductor when appropriate, Python packages with `conda`, `pip`, `environment.yml`, or `requirements.txt` when appropriate, and external tools with their own version checks;
-- how to run scripts or notebooks section by section, why expensive workflows should not be run with one-click Run All / Run All Cells / full pipeline execution, and what files should appear after each major script;
-- how to save and restore the working state in a language-appropriate way: `.RData`, `.Rhistory`, and `.Rproj` for R; `.ipynb` notebook state, conda/venv environment files, serialized objects such as `.pkl`/`.joblib` only when appropriate, and command history or shell scripts for Python/CLI projects; and when to prefer reproducible reloads such as `readRDS()` / `fread()` / `read_csv()` / `pickle.load()` over relying only on an interactive session panel;
-- common beginner errors, such as wrong working directory, missing package, non-ASCII path issues, missing previous-step outputs, and accidentally reading Biomni trace files as runtime inputs.
-
 If the `.docx` guide is missing, outdated, or inconsistent with the trace/software versions/local project layout, create or revise it before continuing script work. The guide is a teaching prerequisite, but it must not replace script-level `stop()` checks or detailed comments.
+
+For detailed requirements for this Word guide, read `references/environment-guide.md`.
 
 ### 5. Write the local reproduction script
 
@@ -146,6 +140,8 @@ Every script should be understandable at three levels:
    - checks / how to judge results;
    - what must not be over-interpreted.
 3. **Line-level help:** keep concise Chinese comments near meaningful code lines, especially for syntax or operations beginners may not know (`<-`, `if`, `for`, `file.exists()`, `stop()`, `merge()`, `fread()`, `fwrite()`, `%in%`, `data.table` grouping, formulas, object slots, and path construction). Do not turn every line into a repeated wall of text when a section overview already explains the block.
+
+Use comments with a clear hierarchy. Put repeated background, research logic, and algorithm explanation in section overviews or algorithm cards; reserve inline comments for key syntax, key parameters, non-obvious transformations, and places where beginners are likely to misread the code. The goal is that a learner can first scan the overview, then read the code, without being buried under identical line-by-line prose.
 
 For any specific algorithm or statistical method, add an `算法卡片` at the point where it appears. The card should explain:
 
