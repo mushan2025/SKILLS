@@ -103,8 +103,11 @@ def fetch(url: str, timeout: int, max_bytes: int) -> FetchResult:
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = resp.read(max_bytes + 1)
-            if len(data) > max_bytes:
+            if max_bytes and max_bytes > 0:
+                data = resp.read(max_bytes + 1)
+            else:
+                data = resp.read()
+            if max_bytes and max_bytes > 0 and len(data) > max_bytes:
                 data = data[:max_bytes]
                 error = f"truncated_at_{max_bytes}_bytes"
             else:
@@ -252,12 +255,87 @@ def result_download_urls(text: str, current_url: str, token: str) -> list[str]:
     return sorted(direct_urls)
 
 
+def classify_download(result: FetchResult, local_path: Path, skipped: bool = False) -> tuple[str, str]:
+    if skipped:
+        return "skipped_existing", "yes"
+    if result.error.startswith("truncated_at_"):
+        return "truncated", "no"
+    if str(result.status) == "ERROR":
+        return "failed", "no"
+    try:
+        status_code = int(result.status)
+    except Exception:
+        status_code = 200 if result.data else 0
+    if status_code in {401, 403}:
+        return "private_or_forbidden", "no"
+    if status_code == 404:
+        return "missing", "no"
+    if status_code == 410:
+        return "expired", "no"
+    if status_code >= 400:
+        return "failed_http", "no"
+    if result.data and local_path:
+        return "success", "yes"
+    return "failed_empty", "no"
+
+
+def read_existing_manifest(path: Path) -> dict[str, dict[str, str]]:
+    if not path.exists():
+        return {}
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not lines:
+        return {}
+    columns = lines[0].split("\t")
+    rows: dict[str, dict[str, str]] = {}
+    for line in lines[1:]:
+        values = line.split("\t")
+        row = {col: values[index] if index < len(values) else "" for index, col in enumerate(columns)}
+        url = row.get("url", "")
+        local_path = row.get("local_path", "")
+        status = row.get("download_status", "")
+        complete = row.get("complete", "")
+        reusable_status = status in {"success", "skipped_existing"} or (not status and not row.get("error", ""))
+        if url and local_path and Path(local_path).exists() and reusable_status and complete != "no":
+            rows[url] = row
+    return rows
+
+
 def write_manifest(rows: list[dict[str, str]], path: Path) -> None:
-    columns = ["url", "final_url", "status", "content_type", "bytes", "local_path", "error", "note"]
+    columns = [
+        "url",
+        "final_url",
+        "status",
+        "download_status",
+        "complete",
+        "content_type",
+        "bytes",
+        "local_path",
+        "error",
+        "note",
+    ]
     with path.open("w", encoding="utf-8", newline="") as handle:
         handle.write("\t".join(columns) + "\n")
         for row in rows:
             handle.write("\t".join(str(row.get(col, "")).replace("\t", " ") for col in columns) + "\n")
+
+
+def download_status_counts(rows: list[dict[str, str]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = row.get("download_status", "unknown") or "unknown"
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def write_download_summary(rows: list[dict[str, str]], path: Path, max_files_reached: bool, byte_limit_enabled: bool) -> None:
+    counts = download_status_counts(rows)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write("metric\tvalue\n")
+        handle.write(f"total_manifest_rows\t{len(rows)}\n")
+        for status in sorted(counts):
+            handle.write(f"download_status:{status}\t{counts[status]}\n")
+        handle.write(f"max_files_reached\t{str(max_files_reached).lower()}\n")
+        handle.write(f"byte_limit_enabled\t{str(byte_limit_enabled).lower()}\n")
 
 
 def write_cross_trace_inventory(rows: list[dict[str, str]], out_base: Path) -> None:
@@ -309,9 +387,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download reachable content behind one or more Biomni share URLs.")
     parser.add_argument("urls", nargs="+", help="One or more Biomni share URLs from the same project or related agent windows")
     parser.add_argument("--out", default="biomni_traces", help="Output root directory")
-    parser.add_argument("--max-files", type=int, default=250, help="Maximum URLs to fetch")
-    parser.add_argument("--max-bytes", type=int, default=50_000_000, help="Maximum bytes per response")
+    parser.add_argument("--max-files", type=int, default=5000, help="Maximum URLs to fetch; lower values are partial discovery, not complete evidence")
+    parser.add_argument("--max-bytes", type=int, default=0, help="Maximum bytes per response; 0 means no truncation")
     parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout in seconds")
+    parser.add_argument("--no-resume", action="store_true", help="Do not reuse complete files already listed in an existing manifest")
     parser.add_argument("--no-common-probes", action="store_true", help="Do not try common public replay routes")
     return parser.parse_args()
 
@@ -331,20 +410,48 @@ def download_one(args: argparse.Namespace, source_url: str, date: str) -> dict[s
     seen: set[str] = set()
     manifest: list[dict[str, str]] = []
     discovered: set[str] = set()
+    existing_manifest = {} if args.no_resume else read_existing_manifest(out_root / "download_manifest.tsv")
 
     while queue and len(seen) < args.max_files:
         url = queue.pop(0)
         if url in seen:
             continue
         seen.add(url)
+
+        if url in existing_manifest:
+            row = dict(existing_manifest[url])
+            row["download_status"] = "skipped_existing"
+            row["complete"] = "yes"
+            row["note"] = "reused_complete_file_from_existing_manifest"
+            manifest.append(row)
+            local_path = Path(row.get("local_path", ""))
+            if local_path.exists():
+                data = local_path.read_bytes()
+                if is_text(row.get("content_type", ""), data):
+                    text = data.decode("utf-8", errors="replace")
+                    link_candidates = html_links(data) + regex_links(text) + result_download_urls(text, row.get("final_url", url) or url, token)
+                    resolved = resolve_links(row.get("final_url", url) or url, link_candidates)
+                    for new_url in resolved:
+                        discovered.add(new_url)
+                        if new_url not in seen and len(queue) + len(seen) < args.max_files:
+                            queue.append(new_url)
+            if url == source_url and not args.no_common_probes:
+                for probe in common_probe_urls(source_url, row.get("final_url", url) or url, token):
+                    if probe not in seen and probe not in queue:
+                        queue.append(probe)
+            continue
+
         result = fetch(url, args.timeout, args.max_bytes)
         subdir = "raw_responses" if url == source_url or is_text(result.content_type, result.data) else "files"
         local_path = save_response(result, out_root, subdir) if result.data else Path("")
+        download_status, complete = classify_download(result, local_path)
         manifest.append(
             {
                 "url": result.url,
                 "final_url": result.final_url,
                 "status": str(result.status),
+                "download_status": download_status,
+                "complete": complete,
                 "content_type": result.content_type,
                 "bytes": str(len(result.data)),
                 "local_path": str(local_path),
@@ -372,9 +479,22 @@ def download_one(args: argparse.Namespace, source_url: str, date: str) -> dict[s
         time.sleep(0.05)
 
     write_manifest(manifest, out_root / "download_manifest.tsv")
+    max_files_reached = len(seen) >= args.max_files
+    byte_limit_enabled = bool(args.max_bytes and args.max_bytes > 0)
+    write_download_summary(manifest, out_root / "download_summary.tsv", max_files_reached, byte_limit_enabled)
     (out_root / "discovered_urls.txt").write_text("\n".join(sorted(discovered)) + "\n", encoding="utf-8")
     print(f"Saved Biomni share discovery to: {out_root}")
     print(f"Fetched {len(manifest)} URL(s); discovered {len(discovered)} candidate URL(s).")
+    print("Download status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(download_status_counts(manifest).items())))
+    if max_files_reached:
+        print("WARNING: max-files limit was reached; treat this as partial discovery until rerun with a higher limit.")
+    if byte_limit_enabled:
+        print("WARNING: max-bytes limit is enabled; truncated rows are not complete evidence.")
+    notes = []
+    if max_files_reached:
+        notes.append("partial_due_to_max_files")
+    if byte_limit_enabled:
+        notes.append("byte_limit_enabled")
     return {
         "source_url": source_url,
         "token": token,
@@ -384,7 +504,7 @@ def download_one(args: argparse.Namespace, source_url: str, date: str) -> dict[s
         "discovered_urls": str(len(discovered)),
         "apparent_project_step": "",
         "relationship_to_other_links": "",
-        "notes": "",
+        "notes": ";".join(notes),
     }
 
 
