@@ -1,0 +1,3 @@
+display_name: Research Group Report Writer
+short_description: Research briefing reports
+default_prompt: Write or update a research-group-style project report from source traces, notes, tables, and analysis outputs. Explain concepts for non-specialists, preserve chronology, distinguish evidence from interpretation, and avoid platform/run-log narration.
